@@ -6,14 +6,18 @@ contract Killswitch {
     enum State { ALIVE, DEAD }
     State public currentState;
     
-    uint public checkinFreq;
+    uint public checkinFrequency;
     uint public holdings;
     uint public durationMins;
     address public beneficiary;
     address public owner;
  
-    event CheckedIn(uint timestamp);
-    event AttemptedClaim(uint timestamp);
+    event UpdateStatus(string status, uint now);
+    
+    modifier isAlive() {
+        require(currentState == State.ALIVE);
+        _;
+    }
   
     function Killswitch(uint _durationMins, address _beneficiary) public payable {
         require(msg.sender != _beneficiary);
@@ -22,23 +26,23 @@ contract Killswitch {
         beneficiary = _beneficiary;
         durationMins = _durationMins;
         currentState = State.ALIVE;
-        checkinFreq = now + (_durationMins * 1 minutes);
+        checkinFrequency = now + (_durationMins * 1 minutes);
     }
  
-    function claimHoldings() public {
+    function claimHoldings() public isAlive {
         require(msg.sender == beneficiary);
-        require(currentState == State.ALIVE);
-        if (now < checkinFreq) {
-            AttemptedClaim(now);
+        if (now < checkinFrequency) {
+            UpdateStatus("Claim failed. Owner still has time to check in", now);
         } else {
             currentState = State.DEAD;
             beneficiary.transfer(holdings);
+            UpdateStatus("Claim cleared. Owner is unaccounted for", now);
         }
     }   
 
     function checkIn() public {
         require(msg.sender == owner);
-        checkinFreq = now + (durationMins * 1 minutes);
-        CheckedIn(now);
+        checkinFrequency = now + (durationMins * 1 minutes);
+        UpdateStatus("Owner checked in", checkinFrequency);
     }
 }
